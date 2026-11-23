@@ -25,8 +25,16 @@ Pada implementasi awal, aplikasi dibuat menggunakan Flutter dengan satu halaman 
 ```
 myportofolio_mobile/
 ├── lib/
-│   ├── main.dart   # Bootstrap aplikasi: runApp, MyApp, MaterialApp, tema
-│   └── menu.dart   # MyHomePage, InfoCard, ItemHomepage (model), ItemCard
+│   ├── main.dart
+│   ├── screens/
+│   │   ├── experience_form.dart
+│   │   ├── menu.dart
+│   │   └── project_form.dart
+│   └── widgets/
+│       ├── item_card.dart
+│       └── left_drawer.dart
+├── test/
+│   └── widget_test.dart
 ├── pubspec.yaml    # Konfigurasi dan dependensi proyek
 └── README.md       # Dokumentasi proyek
 ```
@@ -64,6 +72,13 @@ Prasyarat: [Flutter SDK](https://docs.flutter.dev/get-started/install) sudah ter
 - Menambahkan 5 `ItemCard` dengan ikon dan warna berbeda melalui model `ItemHomepage`
 - Menambahkan `SnackBar` yang menampilkan pesan sesuai tombol yang ditekan
 - Memperbaiki *bottom overflowed* dengan `SingleChildScrollView` dan pengaturan scroll pada `GridView`
+
+### Week 8 - 23 November 2026 (Tugas 8)
+- Menambahkan formulir Pengalaman dan menyempurnakan formulir Proyek dengan validasi serta dialog ringkasan.
+- Formulir Proyek memuat nama, deskripsi, Tags berupa teks dipisahkan koma, URL proyek, dan URL gambar.
+- Menambahkan navigasi formulir dari kartu aksi dan drawer.
+- Membuat formulir dapat digulir pada ruang layar terbatas; tanggal mulai Pengalaman menggunakan tanggal hari ini jika tidak diisi.
+- Menjalankan `flutter analyze` dan `flutter test`. Analisis masih melaporkan dua info deprecation, sedangkan tes widget bawaan masih menguji counter dan gagal pada aplikasi ini.
 
 ### Tugas 7
 
@@ -115,12 +130,22 @@ Pada metode `build(BuildContext context)` di proyek ini, `Theme.of(context).colo
 
 Hot reload saja tidak cukup pada beberapa kasus. Hot restart diperlukan ketika mengubah isi `main()`, nilai variabel global atau static field beserta inisialisasinya, `initState()`, tipe enum atau generic type, atau mengubah widget dari `StatelessWidget` menjadi `StatefulWidget` dan sebaliknya. Full restart diperlukan ketika menambah atau mengubah dependensi di `pubspec.yaml`, menambah aset atau font baru, serta mengubah kode native atau konfigurasi platform seperti `AndroidManifest.xml` dan `Info.plist`.
 
+### Tugas 8
+
+1. `Navigator.push()` menambahkan route baru ke atas navigation stack tanpa menghapus halaman sebelumnya. Kartu **Tambah Proyek** dan **Tambah Pengalaman** menggunakannya untuk membuka formulir, sehingga tombol kembali menutup formulir dan menampilkan halaman sebelumnya. `Navigator.pushReplacement()` mengganti route yang sedang aktif; opsi **Home** di drawer memakainya agar halaman utama tampil menggantikan formulir. `Navigator.pop()` menghapus route teratas, misalnya menutup dialog ringkasan dan kembali ke formulir.
+
+2. `Scaffold` menjadi kerangka halaman dan menampung bagian seperti `AppBar`, `Drawer`, serta isi halaman. Dengan pola yang sama pada halaman utama dan formulir, judul dan navigasi tetap berada di tempat yang konsisten. Warna indigo dipakai pada AppBar formulir dan header drawer; AppBar halaman utama menggunakan `colorScheme.primary` dari tema yang dibuat dengan seed indigo.
+
+3. Formulir menempatkan input secara vertikal di dalam `Column`, dengan `Padding` di sekeliling tiap input dan tombol agar tidak berhimpitan. `SingleChildScrollView` membungkus isi formulir sehingga bagian bawah, termasuk tombol **Simpan**, tetap dapat dijangkau dengan menggulir saat tinggi layar berkurang atau keyboard terbuka.
+
+4. `GlobalKey<FormState>` menghubungkan tombol **Simpan** dengan state dari `Form`, sehingga handler dapat memanggil `validate()` dan `save()`. `validate()` menjalankan setiap `validator`; jika ada yang mengembalikan pesan, pesan itu muncul di kolom terkait dan proses penyimpanan berhenti. Contohnya, nama yang kosong atau hanya berisi spasi ditolak. Jika semua valid, `save()` menjalankan callback `onSaved` untuk mengambil nilai sebelum dialog ringkasan ditampilkan. `keyboardType: TextInputType.url` hanya menyajikan papan ketik yang sesuai; pengguna masih dapat memasukkan URL yang salah, jadi pemeriksaan format tetap diperlukan.
+
 ## AI Disclosure:
 ### Tools
-Claude
+Claude, Copilot
 
 ### Penggunaan AI
-AI saya gunakan untuk membantu menganalisis dan memperbaiki pesan *bottom overflowed by 147 pixels* yang muncul pada preview Chrome mode desktop, menyusun draf jawaban pertanyaan reflektif, serta menyusun kerangka dokumentasi README ini. Logika dan struktur dasar aplikasi, yaitu pemisahan `menu.dart`, `InfoCard`, `ItemCard`, model `ItemHomepage`, dan `SnackBar`, saya kerjakan sendiri mengikuti Tutorial 08. Saya tetap memeriksa hasil saran AI dengan menjalankan ulang aplikasi di Chrome dan menjalankan `flutter analyze`, serta mencocokkan jawaban reflektif dengan kode proyek saya.
+AI saya gunakan untuk membantu menganalisis dan memperbaiki pesan *bottom overflowed by 147 pixels* yang muncul pada preview Chrome mode desktop, menjelaskan bagaimana implementasi `showDatePicker()` dan validasi input, menyusun draf jawaban pertanyaan reflektif, serta menyusun kerangka dokumentasi README ini. Logika dan struktur dasar aplikasi, yaitu pemisahan `menu.dart`, `InfoCard`, `ItemCard`, model `ItemHomepage`, dan `SnackBar`, saya kerjakan sendiri mengikuti Tutorial 08. Saya tetap memeriksa hasil saran AI dengan menjalankan ulang aplikasi di Chrome dan menjalankan `flutter analyze`, serta mencocokkan jawaban reflektif dengan kode proyek saya.
 
 ### Strategi Prompting
 Strategi prompting yang digunakan adalah dengan menyertakan teks petunjuk tugas, isi `main.dart`, dan isi `menu.dart` kepada AI, ditambah penjelasan gejala spesifik berupa pesan overflow pada mode desktop Chrome. Saya juga menanyakan terlebih dahulu apakah masalah tersebut perlu ditangani pada aplikasi mobile. Untuk dokumentasi, saya memberikan README proyek Django sebelumnya sebagai acuan format.
@@ -133,3 +158,6 @@ Saya meminta AI mengulang jawabannya dari awal dengan cakupan yang dibatasi hany
 
 ### AI Chat Logs
 https://claude.ai/share/d4ac2346-e55e-472a-b056-ffb717e63847
+
+### Penggunaan AI pada Tugas 8
+Copilot digunakan untuk membantu meninjau validasi formulir dan navigasi, serta menyusun draf jawaban reflektif. Saya mencocokkan saran dengan kode; Tags tetap berupa teks dipisahkan koma untuk ringkasan formulir dan belum dikirim ke backend. Saya juga menjalankan analisis dan tes; analisis masih melaporkan dua info deprecation dan tes widget bawaan masih perlu diperbarui.
