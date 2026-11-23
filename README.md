@@ -158,6 +158,7 @@ Saya meminta AI mengulang jawabannya dari awal dengan cakupan yang dibatasi hany
 
 ### AI Chat Logs
 https://claude.ai/share/d4ac2346-e55e-472a-b056-ffb717e63847
+https://chatgpt.com/share/6b043677-eb58-83ec-a1a8-56f574bb4c7f
 
 ### Penggunaan AI pada Tugas 8
 Copilot digunakan untuk membantu meninjau validasi formulir dan navigasi, serta menyusun draf jawaban reflektif. Saya mencocokkan saran dengan kode; Tags tetap berupa teks dipisahkan koma untuk ringkasan formulir dan belum dikirim ke backend. Saya juga menjalankan analisis dan tes; analisis masih melaporkan dua info deprecation dan tes widget bawaan masih perlu diperbarui.
