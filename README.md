@@ -13,7 +13,10 @@ Pada implementasi awal, aplikasi dibuat menggunakan Flutter dengan satu halaman 
 
 ## Fitur
 - Kartu informasi profil (NPM, Name, Class)
-- Menu aksi portofolio: Lihat Proyek, Tambah Proyek, Lihat Pengalaman, Tambah Pengalaman, dan Logout
+- Menu aksi portofolio: Lihat Proyek, Tambah Proyek, Lihat Pengalaman, Tambah Pengalaman, serta Masuk/Keluar sesuai status autentikasi
+- Menampilkan daftar dan detail proyek dari Django REST Framework, termasuk gambar proyek dan Tags
+- Memuat pilihan Tags dari database dalam bentuk checkbox multi-pilih
+- Menambahkan proyek ke backend dengan autentikasi token dan validasi URL
 - Warna berbeda untuk setiap tombol menu
 - SnackBar saat tombol ditekan
 
@@ -26,15 +29,33 @@ Pada implementasi awal, aplikasi dibuat menggunakan Flutter dengan satu halaman 
 myportofolio_mobile/
 ├── lib/
 │   ├── main.dart
+│   ├── config.dart
+│   ├── models/
+│   │   ├── project.dart
+│   │   └── project_tag.dart
+│   ├── services/
+│   │   ├── api_client.dart
+│   │   └── auth_state.dart
 │   ├── screens/
+│   │   ├── login_screen.dart
+│   │   ├── project_detail_screen.dart
+│   │   ├── project_list_screen.dart
 │   │   ├── experience_form.dart
 │   │   ├── menu.dart
 │   │   └── project_form.dart
 │   └── widgets/
+│       ├── auth_guard.dart
 │       ├── item_card.dart
 │       └── left_drawer.dart
 ├── test/
+│   ├── api_client_test.dart
+│   ├── project_form_test.dart
+│   ├── project_list_screen_test.dart
+│   ├── project_model_test.dart
 │   └── widget_test.dart
+├── .github/
+│   └── workflows/
+│       └── main.yaml
 ├── pubspec.yaml    # Konfigurasi dan dependensi proyek
 └── README.md       # Dokumentasi proyek
 ```
@@ -64,6 +85,30 @@ Prasyarat: [Flutter SDK](https://docs.flutter.dev/get-started/install) sudah ter
    flutter analyze
    ```
 
+## Integrasi Backend
+Jalankan backend Django dari repositori `myportofolio` setelah dependensinya dipasang:
+
+```bash
+python manage.py migrate
+python manage.py createsuperuser
+python manage.py runserver
+```
+
+Kemudian, jalankan aplikasi dari repositori mobile. Konfigurasi bawaan `API_BASE_URL` adalah `http://10.0.2.2:8000` untuk Android emulator. Untuk Flutter Web di Chrome, gunakan:
+
+```bash
+flutter run -d chrome --dart-define=API_BASE_URL=http://localhost:8000
+```
+
+Untuk perangkat fisik atau build rilis, ganti `API_BASE_URL` dengan alamat backend yang dapat dijangkau perangkat, idealnya menggunakan HTTPS. Jangan menyimpan username, password, atau token API di README maupun source control.
+
+Endpoint yang digunakan aplikasi:
+- `GET /api/v1/projects/` untuk daftar proyek publik.
+- `GET /api/v1/tags/` untuk pilihan Tags publik (`id` dan `name`).
+- `POST /api/v1/auth/token/` untuk memperoleh token login.
+- `POST /api/v1/projects/` untuk menambahkan proyek dengan header `Authorization: Token <key>`; operasi ini memerlukan pengguna superuser sesuai izin backend.
+- `POST /api/v1/auth/logout/` untuk mencabut token.
+
 ## Setup
 ### Week 7 - 16 November 2026 (Tugas 7)
 - Melanjutkan proyek Flutter dari Tutorial 08 dan memisahkan `MyHomePage` ke `menu.dart`
@@ -78,7 +123,17 @@ Prasyarat: [Flutter SDK](https://docs.flutter.dev/get-started/install) sudah ter
 - Formulir Proyek memuat nama, deskripsi, Tags berupa teks dipisahkan koma, URL proyek, dan URL gambar.
 - Menambahkan navigasi formulir dari kartu aksi dan drawer.
 - Membuat formulir dapat digulir pada ruang layar terbatas; tanggal mulai Pengalaman menggunakan tanggal hari ini jika tidak diisi.
-- Menjalankan `flutter analyze` dan `flutter test`. Analisis masih melaporkan dua info deprecation, sedangkan tes widget bawaan masih menguji counter dan gagal pada aplikasi ini.
+- Menjalankan `flutter analyze` dan `flutter test`. Pada akhir Week 8, tes widget bawaan masih menguji counter dan belum sesuai dengan aplikasi; tes tersebut diperbarui pada Week 9.
+
+### Week 9 - 25 November 2026 (Tutorial 10)
+- Mengintegrasikan aplikasi Flutter dengan Django REST Framework menggunakan `http`, `provider`, model JSON, dan `ApiClient`.
+- Mengambil daftar proyek dan Tags dari backend. Karena model proyek pada backend menggunakan `name` dan relasi `tags` (`ManyToManyField`), aplikasi menampilkan Tags sebagai checkbox multi-pilih, mengirim ID Tag yang dipilih, dan menampilkan nama Tags pada dialog konfirmasi.
+- Menambahkan autentikasi token, state sesi `AuthState`, navigasi Login/Logout, serta proteksi aksi tambah proyek.
+- Menyelesaikan alur daftar dan detail proyek, termasuk tarik-untuk-muat-ulang dan penanganan keadaan loading, kosong, dan gagal.
+- Menambahkan workflow GitHub Actions untuk analisis, pengujian, build APK rilis, dan unggah artefak `app-release-apk`.
+
+#### CI/CD
+Workflow berjalan pada push ke branch `main` dan setiap pull request. Hasil APK dapat diunduh dari bagian **Artifacts** pada ringkasan GitHub Actions. Build workflow menggunakan URL API bawaan emulator; sebelum membagikan APK rilis, pastikan perintah build pada `.github/workflows/main.yaml` memakai URL backend deployment melalui `--dart-define=API_BASE_URL=...`.
 
 ### Tugas 7
 
@@ -162,3 +217,6 @@ https://chatgpt.com/share/6b043677-eb58-83ec-a1a8-56f574bb4c7f
 
 ### Penggunaan AI pada Tugas 8
 Copilot digunakan untuk membantu meninjau validasi formulir dan navigasi, serta menyusun draf jawaban reflektif. Saya mencocokkan saran dengan kode; Tags tetap berupa teks dipisahkan koma untuk ringkasan formulir dan belum dikirim ke backend. Saya juga menjalankan analisis dan tes; analisis masih melaporkan dua info deprecation dan tes widget bawaan masih perlu diperbarui.
+
+### Penggunaan AI pada Tutorial 10
+Copilot digunakan untuk membantu memeriksa integrasi API dan autentikasi, menghubungkan pilihan Tags dengan data database, serta menyelesaikan alur daftar/detail proyek. Perubahan diverifikasi dengan tes API Django dan tes Flutter untuk pemuatan Tag, pemilihan multi-Tag, serialisasi model, dan tampilan awal aplikasi.

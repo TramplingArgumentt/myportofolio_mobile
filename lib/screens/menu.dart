@@ -1,7 +1,8 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:myportofolio_mobile/services/auth_state.dart';
 import 'package:myportofolio_mobile/widgets/left_drawer.dart';
 import 'package:myportofolio_mobile/widgets/item_card.dart';
-
+import 'package:provider/provider.dart';
 
 class MyHomePage extends StatelessWidget {
   MyHomePage({super.key});
@@ -11,8 +12,6 @@ class MyHomePage extends StatelessWidget {
   final String kelas = "PBP B";
 
   final List<ItemHomepage> items = [
-    ItemHomepage("Login", Icons.login, Colors.red),
-    ItemHomepage("Logout", Icons.logout, Colors.red),
     ItemHomepage("Lihat Proyek", Icons.folder, Colors.blue),
     ItemHomepage("Tambah Proyek", Icons.add_circle, Colors.yellow),
     ItemHomepage("Lihat Pengalaman", Icons.folder, Colors.green),
@@ -30,6 +29,16 @@ class MyHomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isLoggedIn = context.watch<AuthState>().isLoggedIn;
+    final displayedItems = [
+      ItemHomepage(
+        isLoggedIn ? "Logout" : "Login",
+        isLoggedIn ? Icons.logout : Icons.login,
+        Colors.red,
+      ),
+      ...items,
+    ];
+
     // Scaffold menyediakan struktur visual dasar halaman (AppBar, Body, SnackBar).
     return Scaffold(
       // AppBar menampilkan bar bagian atas halaman aplikasi.
@@ -86,7 +95,7 @@ class MyHomePage extends StatelessWidget {
                       crossAxisCount: 3,
                       // shrinkWrap agar ukuran kisi menyesuaikan tinggi konten anak.
                       shrinkWrap: true,
-                      children: items.map((ItemHomepage item) {
+                      children: displayedItems.map((ItemHomepage item) {
                         return ItemCard(item);
                       }).toList(),
                     ),

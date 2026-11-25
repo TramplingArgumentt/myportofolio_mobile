@@ -1,5 +1,11 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:myportofolio_mobile/models/project.dart';
+import 'package:myportofolio_mobile/models/project_tag.dart';
+import 'package:myportofolio_mobile/services/api_client.dart';
+import 'package:myportofolio_mobile/services/auth_state.dart';
 import 'package:myportofolio_mobile/widgets/left_drawer.dart';
+import 'package:myportofolio_mobile/widgets/auth_guard.dart';
+import 'package:provider/provider.dart';
 
 class ProjectFormPage extends StatefulWidget {
   const ProjectFormPage({super.key});
@@ -13,9 +19,45 @@ class _ProjectFormPageState extends State<ProjectFormPage> {
 
   String _projectName = "";
   String _description = "";
-  List<String> _tags = [];
+  final List<String> _selectedTagIds = [];
+  List<ProjectTag> _availableTags = [];
+  bool _isLoadingTags = true;
+  String? _tagLoadError;
   String _projectUrl = "";
   String _projectImageUrl = "";
+  bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchProjectTags();
+  }
+
+  Future<void> _fetchProjectTags() async {
+    try {
+      final tags = await context.read<ApiClient>().getProjectTags();
+      if (!mounted) return;
+      setState(() {
+        _availableTags = tags;
+        _isLoadingTags = false;
+        _tagLoadError = null;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingTags = false;
+        _tagLoadError = error.toString();
+      });
+    }
+  }
+
+  void _retryFetchProjectTags() {
+    setState(() {
+      _isLoadingTags = true;
+      _tagLoadError = null;
+    });
+    _fetchProjectTags();
+  }
 
   String? _validateOptionalUrl(String? value, {required int maxLength}) {
     final url = value?.trim() ?? '';
@@ -33,54 +75,124 @@ class _ProjectFormPageState extends State<ProjectFormPage> {
     return null;
   }
 
-  String? _validateTags(String? value) {
-    final tags = (value ?? '')
-        .split(',')
-        .map((tag) => tag.trim())
-        .where((tag) => tag.isNotEmpty);
-    if (tags.any((tag) => tag.length > 50)) {
-      return 'Setiap tag maksimal 50 karakter.';
+  Future<void> _submit() async {
+    if (_isLoadingTags || _tagLoadError != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Daftar tags belum tersedia. Silakan coba lagi.'),
+        ),
+      );
+      return;
     }
-    return null;
-  }
 
-  void _saveProject() {
     final form = _formKey.currentState;
     if (form == null || !form.validate()) {
       return;
     }
     form.save();
 
-    final tagSummary = _tags.isEmpty ? 'Tidak diisi' : _tags.join(', ');
-    showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Proyek berhasil ditambahkan!'),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('Nama Proyek: $_projectName'),
-              Text('Deskripsi: $_description'),
-              Text('Tags: $tagSummary'),
-              Text(
-                'URL Proyek: ${_projectUrl.isEmpty ? "Tidak diisi" : _projectUrl}',
-              ),
-              Text(
-                'URL Gambar: ${_projectImageUrl.isEmpty ? "Tidak diisi" : _projectImageUrl}',
-              ),
-            ],
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    try {
+      if (!await ensureLoggedIn(context) || !mounted) return;
+
+      final token = context.read<AuthState>().token;
+      if (token == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Silakan masuk untuk menambah proyek.')),
+        );
+        return;
+      }
+
+      final newProject = Project(
+        title: _projectName,
+        description: _description,
+        tags: _selectedTagIds,
+        projectUrl: _projectUrl,
+        projectImageUrl: _projectImageUrl,
+      );
+      await context.read<ApiClient>().createProject(newProject, token: token);
+      if (!mounted) return;
+
+      final selectedTagNames = _availableTags
+          .where((tag) => _selectedTagIds.contains(tag.id))
+          .map((tag) => tag.name)
+          .toList();
+      final tagSummary = selectedTagNames.isEmpty
+          ? 'Tidak diisi'
+          : selectedTagNames.join(', ');
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Proyek berhasil ditambahkan!'),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Nama Proyek: $_projectName'),
+                Text('Deskripsi: $_description'),
+                Text('Tags: $tagSummary'),
+                Text(
+                  'URL Proyek: ${_projectUrl.isEmpty ? "Tidak diisi" : _projectUrl}',
+                ),
+                Text(
+                  'URL Gambar: ${_projectImageUrl.isEmpty ? "Tidak diisi" : _projectImageUrl}',
+                ),
+              ],
+            ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Tutup'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Tutup'),
+      );
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      if (error.statusCode == 401) {
+        try {
+          await context.read<AuthState>().logout();
+        } catch (logoutError) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Gagal keluar: $logoutError')));
+        }
+        if (!mounted) return;
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(
+              content: Text('Sesi berakhir. Silakan masuk kembali.'),
+            ),
+          );
+        await ensureLoggedIn(context);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Gagal menambah proyek (${error.statusCode}): ${error.message}',
+            ),
           ),
-        ],
-      ),
-    );
+        );
+      }
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Gagal menambah proyek: $error')));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
   }
 
   @override
@@ -149,23 +261,53 @@ class _ProjectFormPageState extends State<ProjectFormPage> {
               // === Tags ===
               Padding(
                 padding: const EdgeInsets.all(8.0),
-                child: TextFormField(
-                  decoration: InputDecoration(
-                    hintText: "Contoh: Flutter, Django, Figma (pisahkan koma)",
-                    labelText: "Tags",
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(5.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        'Tags',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                     ),
-                  ),
-                  onSaved: (value) {
-                    _tags = (value ?? '')
-                        .split(',')
-                        .map((tag) => tag.trim())
-                        .where((tag) => tag.isNotEmpty)
-                        .toSet()
-                        .toList();
-                  },
-                  validator: _validateTags,
+                    if (_isLoadingTags)
+                      const Center(child: CircularProgressIndicator())
+                    else if (_tagLoadError != null)
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text('Gagal memuat tags: $_tagLoadError'),
+                          ),
+                          TextButton(
+                            onPressed: _retryFetchProjectTags,
+                            child: const Text('Coba lagi'),
+                          ),
+                        ],
+                      )
+                    else if (_availableTags.isEmpty)
+                      const Text('Belum ada tags yang tersedia.')
+                    else
+                      ..._availableTags.map(
+                        (tag) => CheckboxListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(tag.name),
+                          value: _selectedTagIds.contains(tag.id),
+                          onChanged: (isSelected) {
+                            setState(() {
+                              if (isSelected == true) {
+                                _selectedTagIds.add(tag.id);
+                              } else {
+                                _selectedTagIds.remove(tag.id);
+                              }
+                            });
+                          },
+                        ),
+                      ),
+                  ],
                 ),
               ),
 
@@ -175,7 +317,7 @@ class _ProjectFormPageState extends State<ProjectFormPage> {
                 child: TextFormField(
                   decoration: InputDecoration(
                     hintText: "URL Proyek (opsional)",
-                    labelText: "Project URL",
+                    labelText: "URL Proyek",
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(5.0),
                     ),
@@ -193,7 +335,7 @@ class _ProjectFormPageState extends State<ProjectFormPage> {
                 child: TextFormField(
                   decoration: InputDecoration(
                     hintText: "URL gambar proyek (opsional)",
-                    labelText: "Project Image URL",
+                    labelText: "URL Gambar Proyek (Opsional)",
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(5.0),
                     ),
@@ -213,11 +355,17 @@ class _ProjectFormPageState extends State<ProjectFormPage> {
                     style: ButtonStyle(
                       backgroundColor: WidgetStateProperty.all(Colors.indigo),
                     ),
-                    onPressed: _saveProject,
-                    child: const Text(
-                      "Simpan",
-                      style: TextStyle(color: Colors.white),
-                    ),
+                    onPressed: _isSubmitting ? null : _submit,
+                    child: _isSubmitting
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text(
+                            "Simpan",
+                            style: TextStyle(color: Colors.white),
+                          ),
                   ),
                 ),
               ),
