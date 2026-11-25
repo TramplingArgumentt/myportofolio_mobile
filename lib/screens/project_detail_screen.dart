@@ -65,7 +65,7 @@ class ProjectDetailScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(height: 3, color: _accentColor),
-                  if (imageUri != null) 
+                  if (imageUri != null)
                     Image.network(
                       imageUri.toString(),
                       width: double.infinity,
